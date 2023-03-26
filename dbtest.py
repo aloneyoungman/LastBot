@@ -3,11 +3,20 @@ import psycopg2
 conn = psycopg2.connect(
     dbname="test",
     user="postgres",
-    password="8991",
+    password = "8991",
     host="127.0.0.1"
 )
 
 cur = conn.cursor()
+
+# Лучше, если ты будешь проверять существует ли такая таблица
+# и создавать таблицу только если её ещё не существует
+# Например вот https://stackoverflow.com/questions/1874113/checking-if-a-postgresql-table-exists-under-python-and-probably-psycopg2
+
+# Также предлагаю тебе использовать автокоммит, чтобы не писать после каждой операции commit
+# Хотя то, как ты сделал - правильно и в реальном проекте часто используется такой подход
+
+# Методы согласно PEP-8 называются с большой буквы - пожалуйста поправь это
 
 cur.execute("""
     CREATE TABLE Products (
@@ -159,3 +168,16 @@ class Partners:
     def delete(id):
         cur.execute("DELETE FROM Partners WHERE id=%s", (id,))
         conn.commit()
+
+
+id_list = [13,14]
+
+# вариант 1
+cur.execute("SELECT * FROM Products WHERE id IN %s ", (tuple(id_list) ,) )
+products = cur.fetchall()
+print(products)
+
+# вариант 2 
+cur.execute("SELECT * FROM Products WHERE id = ANY(%s) ", ([id_list] ,) )
+products = cur.fetchall()
+print(products)
