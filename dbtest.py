@@ -14,7 +14,7 @@ cur.execute("""
         id SERIAL PRIMARY KEY,
         name VARCHAR(255)
     )
-         """)
+     """)
 
 cur.execute("""
     CREATE TABLE Wares (
