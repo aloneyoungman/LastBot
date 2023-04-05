@@ -19,21 +19,21 @@ cur = conn.cursor()
 # Методы согласно PEP-8 называются с большой буквы - пожалуйста поправь это
 
 cur.execute("""
-    CREATE TABLE Products (
+    CREATE TABLE IF NOT EXISTS Products (
         id SERIAL PRIMARY KEY,
         name VARCHAR(255)
     )
      """)
 
 cur.execute("""
-    CREATE TABLE Wares (
+    CREATE TABLE IF NOT EXISTS Wares (
         id SERIAL PRIMARY KEY,
         adress VARCHAR(255)
     )
 """)
 
 cur.execute("""
-    CREATE TABLE Available (
+    CREATE TABLE IF NOT EXISTS Available (
         id SERIAL PRIMARY KEY,
         ware_id INTEGER,
         product_id INTEGER,
@@ -43,7 +43,7 @@ cur.execute("""
 """)
 
 cur.execute("""
-    CREATE TABLE Partners (
+    CREATE TABLE IF NOT EXISTS Partners (
         id SERIAL PRIMARY KEY,
         name VARCHAR(255),
         inn VARCHAR(12)
@@ -51,7 +51,7 @@ cur.execute("""
 """)
 
 cur.execute("""
-    CREATE TABLE Orders (
+    CREATE TABLE IF NOT EXISTS Orders (
         id SERIAL PRIMARY KEY,
         partner_id INTEGER,
         from_ware INTEGER,
@@ -62,7 +62,7 @@ cur.execute("""
 """)
 
 cur.execute("""
-    CREATE TABLE Order_products (
+    CREATE TABLE IF NOT EXISTS Order_products (
         id SERIAL PRIMARY KEY,
         order_id INTEGER,
         product_id INTEGER,
@@ -83,8 +83,10 @@ class Products:
     def read(id=None):
         if id is None:
             cur.execute("SELECT * FROM Products")
-        else:
+        elif isinstance(id, int):
             cur.execute("SELECT * FROM Products WHERE id=%s", (id,))
+        elif isinstance(id,list):
+            cur.execute("SELECT * FROM Products WHERE id IN %s", (tuple(id),))
         return cur.fetchall()
 
     @staticmethod
@@ -107,8 +109,10 @@ class Wares:
     def read(id=None):
         if id is None:
             cur.execute("SELECT * FROM Wares")
-        else:
+        elif  isinstance(id,int):
             cur.execute("SELECT * FROM Wares WHERE id=%s", (id,))
+        elif isinstance(id,list):
+            cur.execute("SELECT * FROM Wares WHERE id IN %s", (tuple(id),))
         return cur.fetchall()
 
     @staticmethod
@@ -131,8 +135,10 @@ class Available:
     def read(id=None):
         if id is None:
             cur.execute("SELECT * FROM Available")
-        else:
+        elif isinstance(id, int):
             cur.execute("SELECT * FROM Available WHERE id=%s", (id,))
+        elif isinstance(id, list):
+            cur.execute("SELECT * FROM Available WHERE id IN %s", (tuple(id),))
         return cur.fetchall()
 
     @staticmethod
@@ -155,9 +161,10 @@ class Partners:
     def read(id=None):
         if id is None:
             cur.execute("SELECT * FROM Partners")
-        else:
+        elif isinstance(id, int):
             cur.execute("SELECT * FROM Partners WHERE id=%s", (id,))
-        return cur.fetchall()
+        elif isinstance(id, list):
+            cur.execute("SELECT * FROM Partners WHERE id IN %s", (tuple(id),))
 
     @staticmethod
     def update(id, ware_id, product_id):
@@ -168,6 +175,57 @@ class Partners:
     def delete(id):
         cur.execute("DELETE FROM Partners WHERE id=%s", (id,))
         conn.commit()
+
+class Orders:
+    @staticmethod
+    def add(partner_id, ware_id,order_date):
+        cur.execute("INSERT INTO Orders (partner_id, from_ware,order_date) VALUES (%s, %s,%s)", (partner_id, ware_id,order_date))
+        conn.commit()
+
+    @staticmethod
+    def read(id=None):
+        if id is None:
+            cur.execute("SELECT * FROM Orders")
+        elif isinstance(id, int):
+            cur.execute("SELECT * FROM Orders WHERE id=%s", (id,))
+        elif isinstance(id, list):
+            cur.execute("SELECT * FROM Orders WHERE id IN %s", (tuple(id),))
+
+    @staticmethod
+    def update(id, partner_id, from_ware, order_date):
+        cur.execute("UPDATE Orders SET partner_id = %s, from_ware = %s, order_date = %s WHERE id = %s", (partner_id, from_ware,order_date, id))
+        conn.commit()
+
+    @staticmethod
+    def delete(id):
+        cur.execute("DELETE FROM Orders WHERE id=%s", (id,))
+        conn.commit()
+
+class Order_products:
+    @staticmethod
+    def add(order_id, product_id):
+        cur.execute("INSERT INTO Order_products (order_id, product_id) VALUES (%s, %s)", (order_id, product_id))
+        conn.commit()
+
+    @staticmethod
+    def read(id=None):
+        if id is None:
+            cur.execute("SELECT * FROM Orders_products")
+        elif isinstance(id, int):
+            cur.execute("SELECT * FROM Order_products WHERE id=%s", (id,))
+        elif isinstance(id, list):
+            cur.execute("SELECT * FROM Order_products WHERE id IN %s", (tuple(id),))
+
+    @staticmethod
+    def update(id, order_id, product_id):
+        cur.execute("UPDATE Order_products SET order_id = %s, product_id = %s WHERE id = %s", (order_id, product_id, id))
+        conn.commit()
+
+    @staticmethod
+    def delete(id):
+        cur.execute("DELETE FROM Order_products WHERE id=%s", (id,))
+        conn.commit()
+
 
 
 id_list = [13,14]
@@ -181,3 +239,45 @@ print(products)
 cur.execute("SELECT * FROM Products WHERE id = ANY(%s) ", ([id_list] ,) )
 products = cur.fetchall()
 print(products)
+
+class MyQueries:
+    @staticmethod
+    def GetWareProducts(ware_id):
+        cur.execute("""
+        SELECT products.id, products.name
+        FROM available
+        INNER JOIN products ON available.product_id=products.id
+        WHERE available.ware_id = %s
+        """, (ware_id,))
+        return cur.fetchall()
+
+    @staticmethod
+    def GetOrderProducts(order_id):
+        cur.execute("""
+        SELECT Orders.id, Orders.order_date, Partners.name, wares.adress, Products.name
+        FROM Order_products
+        INNER JOIN orders ON Order_products.order_id=orders.id
+        INNER JOIN partners ON orders.partner_id=Partners.id
+        INNER JOIN wares ON orders.from_ware=Wares.id
+        INNER JOIN products ON Order_products.product_id=products.id
+        WHERE orders.id = %s
+        """, (order_id,))
+        return cur.fetchall()
+
+    @staticmethod
+    def GetPartnerQrders(partner_id):
+        cur.execute("""
+        SELECT orders.id, orders.order_date, wares.adress, 
+        FROM orders
+        INNER JOIN Order_products ON orders.id=Order_products.order_id
+        INNER JOIN wares ON orders.from_ware=wares.id
+        INNER JOIN products ON Order_products.product_id=products.id
+        WHERE orders.partner_id = %s
+        GROUP BY orders.id, orders.order_date, wares.adress
+        """, (partner_id,))
+        return cur.fetchall()
+
+
+print(MyQueries.GetWareProducts(2))
+print(MyQueries.GetOrderProducts(2))
+print(MyQueries.GetPartnerQrders(2))
