@@ -1,5 +1,5 @@
 import psycopg2
-
+from datetime import datetime, date, time,timedelta
 conn = psycopg2.connect(
     dbname="test",
     user="postgres",
@@ -37,8 +37,8 @@ cur.execute("""
         id SERIAL PRIMARY KEY,
         ware_id INTEGER,
         product_id INTEGER,
-        FOREIGN KEY (ware_id) REFERENCES Wares(id),
-        FOREIGN KEY (product_id) REFERENCES Products(id)
+        FOREIGN KEY (ware_id) REFERENCES Wares(id) ON DELETE CASCADE,
+        FOREIGN KEY (product_id) REFERENCES Products(id) ON DELETE CASCADE
     )
 """)
 
@@ -56,8 +56,8 @@ cur.execute("""
         partner_id INTEGER,
         from_ware INTEGER,
         order_date DATE,
-        FOREIGN KEY (partner_id) REFERENCES Partners(id),
-        FOREIGN KEY (from_ware) REFERENCES Wares(id)
+        FOREIGN KEY (partner_id) REFERENCES Partners(id) ON DELETE CASCADE,
+        FOREIGN KEY (from_ware) REFERENCES Wares(id) ON DELETE CASCADE
     )
 """)
 
@@ -66,8 +66,8 @@ cur.execute("""
         id SERIAL PRIMARY KEY,
         order_id INTEGER,
         product_id INTEGER,
-        FOREIGN KEY (order_id) REFERENCES Orders(id),
-        FOREIGN KEY (product_id) REFERENCES Products(id)
+        FOREIGN KEY (order_id) REFERENCES Orders(id) ON DELETE CASCADE,
+        FOREIGN KEY (product_id) REFERENCES Products(id) ON DELETE CASCADE
     )
 """)
 
@@ -167,8 +167,8 @@ class Partners:
             cur.execute("SELECT * FROM Partners WHERE id IN %s", (tuple(id),))
 
     @staticmethod
-    def update(id, ware_id, product_id):
-        cur.execute("UPDATE Partners SET ware_id=%s, product_id=%s WHERE id=%s", (ware_id, product_id, id))
+    def update(id, name, inn):
+        cur.execute("UPDATE Partners SET name=%s, inn=%s WHERE id=%s", (name, inn, id))
         conn.commit()
 
     @staticmethod
@@ -210,7 +210,7 @@ class Order_products:
     @staticmethod
     def read(id=None):
         if id is None:
-            cur.execute("SELECT * FROM Orders_products")
+            cur.execute("SELECT * FROM Order_products")
         elif isinstance(id, int):
             cur.execute("SELECT * FROM Order_products WHERE id=%s", (id,))
         elif isinstance(id, list):
@@ -278,6 +278,83 @@ class MyQueries:
         return cur.fetchall()
 
 
-print(MyQueries.GetWareProducts(2))
-print(MyQueries.GetOrderProducts(2))
-print(MyQueries.GetPartnerQrders(2))
+def Clear_Db():
+    Products.add("Апельсин")
+    tables = [Available, Order_products, Orders, Products ,Partners, Wares]
+    for table in tables:
+        data = table.read()
+        if data is not None and len(data)>0:
+            items_ids = map(lambda item:item[0],data)
+            for item_id in items_ids:
+                table.delete(item_id)
+
+def Get_All_Ids(table):
+    return list(map(lambda row:row[0], table.read()))
+
+# Если данная функция отработала и вывела все необходимые данные - значит весь код работает правильно
+# В ней мы удаляем все существующие в таблице данные
+# Затем заново добавляем несколько тестовых объектов
+# И пытаемся выполнить разные функции
+def test_func():
+    Clear_Db()
+
+    Products.add('bad_Апельсин')
+    Products.add('Яблоко')
+    Products.add('Банан')
+    Wares.add('bad_СПБ')
+    Wares.add('МСК')
+
+    product_Ids = Get_All_Ids(Products)
+    Products.update(product_Ids[0], 'Апельсин')
+    wares_Ids = Get_All_Ids(Wares)
+    Wares.update(Wares[0], 'СПБ')
+
+    Available.add(wares_Ids[0],product_Ids[0])
+    Available.add(wares_Ids[0],product_Ids[2])
+
+    Available.add(wares_Ids[1],product_Ids[1])
+    Available.add(wares_Ids[1],product_Ids[0])
+    availables_ids = Get_All_Ids(Available)
+    Available.update(availables_ids[0], wares_Ids[0],product_Ids[0])
+
+    print('products', Products.read())
+    print('wares',Wares.read())
+    print('available', Available.read())
+    print(MyQueries.GetWareProducts(wares_Ids[0]))
+
+    Partners.add('bad_Apple',111111)
+    Partners.add('Uber',222222)
+    partners_ids = Get_All_Ids(Partners)
+    Partners.update(partners_ids[0],'Apple', 111111 )
+
+    Orders.add(partners_ids[0],wares_Ids[0], datetime.now() + timedelta(days=2) )
+    Orders.add(partners_ids[0],wares_Ids[1], datetime.now() + timedelta(days=-5))
+    orders_ids = Get_All_Ids(Orders)
+    Orders.update(orders_ids[0],partners_ids[0],wares_Ids[0], datetime.now() + timedelta(days=15))
+
+    Order_products.add(orders_ids[0],product_Ids[0])
+    Order_products.add(orders_ids[0],product_Ids[1])
+    Order_products.add(orders_ids[1],product_Ids[2])
+    Order_products.add(orders_ids[1],product_Ids[1])
+    order_products_ids = Get_All_Ids(Order_products)
+    Order_products.update(order_products_ids[0],)
+
+    print('partners',Partners.read())
+    print('orders',Orders.read())
+    print('orders_products',Order_products.read(), orders_ids[0],product_Ids[0])
+
+    print('order_product_by_id', MyQueries.GetOrderProducts(orders_ids[0]))
+    print('orders_by_parnter_id', MyQueries.GetPartnerQrders(partners_ids[0]))
+
+
+
+test_func()
+
+# Всё ещё не нашёл нигде отрисованной схемы БД
+#
+# Рекомендую тебе разбить данный файл на отдельные питон файлы по классам.
+# Так будет гораздо удобнее работать, а не читать большой файл
+#
+# Если начать работать с данными методами - будет гораздо удобнее, если метод Add() - будет возвращать id созданного элемента
+# Тогда не надо будет создавать отдельный метод, как создал я
+#
