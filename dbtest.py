@@ -307,7 +307,7 @@ def test_func():
     product_Ids = Get_All_Ids(Products)
     Products.update(product_Ids[0], 'Апельсин')
     wares_Ids = Get_All_Ids(Wares)
-    Wares.update(Wares[0], 'СПБ')
+    Wares.update(wares_Ids[0], 'СПБ')
 
     Available.add(wares_Ids[0],product_Ids[0])
     Available.add(wares_Ids[0],product_Ids[2])
