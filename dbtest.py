@@ -165,7 +165,7 @@ class Partners:
             cur.execute("SELECT * FROM Partners WHERE id=%s", (id,))
         elif isinstance(id, list):
             cur.execute("SELECT * FROM Partners WHERE id IN %s", (tuple(id),))
-
+        return cur.fetchall()
     @staticmethod
     def update(id, name, inn):
         cur.execute("UPDATE Partners SET name=%s, inn=%s WHERE id=%s", (name, inn, id))
@@ -190,7 +190,7 @@ class Orders:
             cur.execute("SELECT * FROM Orders WHERE id=%s", (id,))
         elif isinstance(id, list):
             cur.execute("SELECT * FROM Orders WHERE id IN %s", (tuple(id),))
-
+        return cur.fetchall()
     @staticmethod
     def update(id, partner_id, from_ware, order_date):
         cur.execute("UPDATE Orders SET partner_id = %s, from_ware = %s, order_date = %s WHERE id = %s", (partner_id, from_ware,order_date, id))
@@ -215,7 +215,7 @@ class Order_products:
             cur.execute("SELECT * FROM Order_products WHERE id=%s", (id,))
         elif isinstance(id, list):
             cur.execute("SELECT * FROM Order_products WHERE id IN %s", (tuple(id),))
-
+        return cur.fetchall()
     @staticmethod
     def update(id, order_id, product_id):
         cur.execute("UPDATE Order_products SET order_id = %s, product_id = %s WHERE id = %s", (order_id, product_id, id))
@@ -267,7 +267,7 @@ class MyQueries:
     @staticmethod
     def GetPartnerQrders(partner_id):
         cur.execute("""
-        SELECT orders.id, orders.order_date, wares.adress, 
+        SELECT orders.id, orders.order_date, wares.adress 
         FROM orders
         INNER JOIN Order_products ON orders.id=Order_products.order_id
         INNER JOIN wares ON orders.from_ware=wares.id
@@ -289,7 +289,10 @@ def Clear_Db():
                 table.delete(item_id)
 
 def Get_All_Ids(table):
-    return list(map(lambda row:row[0], table.read()))
+    rows = table.read()
+    if rows is not None:
+        return list(map(lambda row: row[0], rows))
+
 
 # Если данная функция отработала и вывела все необходимые данные - значит весь код работает правильно
 # В ней мы удаляем все существующие в таблице данные
@@ -337,7 +340,7 @@ def test_func():
     Order_products.add(orders_ids[1],product_Ids[2])
     Order_products.add(orders_ids[1],product_Ids[1])
     order_products_ids = Get_All_Ids(Order_products)
-    Order_products.update(order_products_ids[0],)
+    Order_products.update(order_products_ids[0],orders_ids[1],product_Ids[1])
 
     print('partners',Partners.read())
     print('orders',Orders.read())
